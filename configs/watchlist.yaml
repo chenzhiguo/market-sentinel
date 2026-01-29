@@ -1,0 +1,98 @@
+# Watchlist - Key Accounts and Sources to Monitor
+
+twitter:
+  # Breaking financial news
+  breaking_news:
+    - handle: "DeItaone"
+      description: "Financial news headlines"
+      priority: critical
+    - handle: "FirstSquawk"
+      description: "Real-time market news"
+      priority: critical
+    - handle: "zaborowsky"
+      description: "Breaking news aggregator"
+      priority: high
+    - handle: "unusual_whales"
+      description: "Options flow and unusual activity"
+      priority: high
+    - handle: "Newsquawk"
+      description: "Live market commentary"
+      priority: high
+
+  # Political figures
+  political:
+    - handle: "realDonaldTrump"
+      description: "Donald Trump"
+      priority: critical
+      keywords: ["tariff", "china", "trade", "stock", "market"]
+    - handle: "POTUS"
+      description: "President of the United States"
+      priority: high
+    - handle: "SecYellen"
+      description: "Treasury Secretary"
+      priority: high
+    - handle: "federalreserve"
+      description: "Federal Reserve official account"
+      priority: high
+
+  # Business leaders
+  business:
+    - handle: "elonmusk"
+      description: "Elon Musk - Tesla, SpaceX, X"
+      priority: critical
+      related_stocks: ["TSLA"]
+    - handle: "tim_cook"
+      description: "Tim Cook - Apple CEO"
+      priority: high
+      related_stocks: ["AAPL"]
+    - handle: "satloaner"
+      description: "Satya Nadella - Microsoft CEO"
+      priority: high
+      related_stocks: ["MSFT"]
+    - handle: "BillGates"
+      description: "Bill Gates"
+      priority: medium
+    - handle: "chaabortz"
+      description: "Jensen Huang - NVIDIA CEO"
+      priority: high
+      related_stocks: ["NVDA"]
+
+  # Analysts and Investors
+  analysts:
+    - handle: "markminervini"
+      description: "Mark Minervini - Growth investor"
+      priority: medium
+    - handle: "jimcramer"
+      description: "Jim Cramer - CNBC Mad Money"
+      priority: medium
+    - handle: "carlicahn"
+      description: "Carl Icahn - Activist investor"
+      priority: medium
+
+rss:
+  # Tier 1 - Breaking news
+  tier1:
+    - url: "https://feeds.bloomberg.com/markets/news.rss"
+      name: "Bloomberg Markets"
+      priority: critical
+    - url: "https://feeds.reuters.com/reuters/businessNews"
+      name: "Reuters Business"
+      priority: critical
+
+  # Tier 2 - General financial news
+  tier2:
+    - url: "https://www.cnbc.com/id/100003114/device/rss/rss.html"
+      name: "CNBC"
+      priority: high
+    - url: "https://feeds.marketwatch.com/marketwatch/topstories"
+      name: "MarketWatch"
+      priority: high
+
+  # Tier 3 - Tech and specialty
+  tier3:
+    - url: "https://feeds.feedburner.com/TechCrunch"
+      name: "TechCrunch"
+      priority: medium
+    - url: "https://www.scmp.com/rss/91/feed"
+      name: "SCMP China"
+      priority: medium

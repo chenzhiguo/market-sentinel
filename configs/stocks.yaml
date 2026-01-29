@@ -1,0 +1,81 @@
+# Stock and Industry Mapping
+# Maps keywords, company names, and tickers to stock symbols
+
+companies:
+  # Tech Giants
+  - name: "Apple"
+    aliases: ["apple", "iphone", "ipad", "macbook", "tim cook", "aapl"]
+    symbol: "AAPL"
+    sector: "technology"
+  
+  - name: "Microsoft"
+    aliases: ["microsoft", "msft", "windows", "azure", "satya nadella", "copilot"]
+    symbol: "MSFT"
+    sector: "technology"
+  
+  - name: "NVIDIA"
+    aliases: ["nvidia", "nvda", "jensen huang", "cuda", "geforce", "h100", "blackwell"]
+    symbol: "NVDA"
+    sector: "semiconductors"
+  
+  - name: "Tesla"
+    aliases: ["tesla", "tsla", "elon musk", "musk", "cybertruck", "model 3", "model y"]
+    symbol: "TSLA"
+    sector: "automotive"
+  
+  - name: "Alphabet"
+    aliases: ["google", "googl", "alphabet", "youtube", "android", "gemini", "sundar pichai"]
+    symbol: "GOOGL"
+    sector: "technology"
+  
+  - name: "Amazon"
+    aliases: ["amazon", "amzn", "aws", "bezos", "andy jassy", "prime"]
+    symbol: "AMZN"
+    sector: "technology"
+  
+  - name: "Meta"
+    aliases: ["meta", "facebook", "instagram", "whatsapp", "zuckerberg", "threads", "llama"]
+    symbol: "META"
+    sector: "technology"
+
+  # China Tech
+  - name: "Alibaba"
+    aliases: ["alibaba", "baba", "taobao", "alipay", "jack ma"]
+    symbol: "BABA"
+    sector: "china_tech"
+  
+  - name: "Pinduoduo"
+    aliases: ["pinduoduo", "pdd", "temu"]
+    symbol: "PDD"
+    sector: "china_tech"
+  
+  - name: "NIO"
+    aliases: ["nio", "蔚来"]
+    symbol: "NIO"
+    sector: "china_ev"
+  
+  - name: "XPeng"
+    aliases: ["xpeng", "xpev", "小鹏"]
+    symbol: "XPEV"
+    sector: "china_ev"
+
+sectors:
+  semiconductors:
+    keywords: ["chip", "semiconductor", "fab", "wafer", "foundry"]
+    stocks: ["NVDA", "AMD", "INTC", "TSM", "ASML", "AVGO", "QCOM"]
+  
+  china_trade:
+    keywords: ["tariff", "trade war", "china trade", "us-china", "中美"]
+    stocks: ["BABA", "PDD", "NIO", "XPEV", "JD", "BIDU"]
+  
+  ai:
+    keywords: ["artificial intelligence", "ai model", "llm", "gpt", "machine learning"]
+    stocks: ["NVDA", "MSFT", "GOOGL", "META", "AMD"]
+  
+  fed_policy:
+    keywords: ["federal reserve", "fed", "interest rate", "rate hike", "rate cut", "powell", "fomc"]
+    stocks: ["SPY", "QQQ", "TLT", "JPM", "BAC"]
+  
+  ev:
+    keywords: ["electric vehicle", "ev", "battery", "charging"]
+    stocks: ["TSLA", "RIVN", "LCID", "NIO", "XPEV", "LI"]

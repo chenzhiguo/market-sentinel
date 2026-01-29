@@ -1,0 +1,68 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: 30s
+  write_timeout: 30s
+
+auth:
+  # API tokens for authentication
+  # Production: use SENTINEL_API_TOKEN environment variable
+  tokens:
+    - "sk-sentinel-dev-token-change-me"
+  rate_limit: 100  # requests per minute per token
+
+storage:
+  database: "./data/sentinel.db"
+  reports_dir: "./data/reports"
+
+collector:
+  scan_interval: 15m
+  sources:
+    - twitter
+    - rss
+  
+  twitter:
+    enabled: true
+    # Nitter instances (public mirrors for Twitter)
+    nitter_hosts:
+      - "https://nitter.net"
+      - "https://nitter.privacydev.net"
+      - "https://nitter.poast.org"
+    # Accounts to monitor
+    accounts:
+      # Breaking news
+      - "DeItaone"
+      - "FirstSquawk"
+      - "zaborowsky"
+      - "unusual_whales"
+      # Political figures
+      - "realDonaldTrump"
+      - "POTUS"
+      - "SecYellen"
+      # Business leaders
+      - "elonmusk"
+      - "satloaner"
+      - "tim_cook"
+      - "BillGates"
+    poll_interval: 5m
+
+  rss:
+    enabled: true
+    feeds:
+      # Financial news
+      - "https://feeds.bloomberg.com/markets/news.rss"
+      - "https://feeds.reuters.com/reuters/businessNews"
+      - "https://www.cnbc.com/id/100003114/device/rss/rss.html"
+      # China/Asia focus
+      - "https://www.scmp.com/rss/91/feed"
+      # Tech
+      - "https://feeds.feedburner.com/TechCrunch"
+
+analyzer:
+  llm_provider: "anthropic"
+  llm_model: "claude-sonnet-4-20250514"
+  # API key from environment: ANTHROPIC_API_KEY
+
+reporter:
+  save_to_file: true
+  file_format: "json"  # json or markdown
