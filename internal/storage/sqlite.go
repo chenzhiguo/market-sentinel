@@ -55,19 +55,10 @@ func New(dbPath string) (*Storage, error) {
 
 // SaveNews 保存新闻
 func (s *Storage) SaveNews(news *NewsItem) error {
-	result := s.db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "source"}, {Name: "source_id"}},
-		DoNothing: true,
-	}).Create(news)
-
-	if result.Error != nil {
-		return result.Error
-	}
-
-	if s.backupPath != "" {
-		return s.backupToFile("news", news.ID, news)
-	}
-	return nil
+	// 使用 SQLite 特有的 INSERT OR IGNORE
+	// 这避免了 ON CONFLICT 必须匹配具体索引的严格限制
+	result := s.db.Clauses(clause.Insert{Modifier: "OR IGNORE"}).Create(news)
+	return result.Error
 }
 
 // ListNews 获取新闻列表（支持过滤和分页）

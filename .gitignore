@@ -1,1 +1,36 @@
+# Binaries
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
 
+# Test coverage
+coverage.out
+coverage.html
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Dependencies (if vendoring)
+vendor/
+
+# Data files (optional, uncomment if needed)
+# data/
+
+# Local config overrides
+configs/local.yaml
+
+# Logs
+*.log
+data/
+sentinel

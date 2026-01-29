@@ -38,6 +38,7 @@ type CollectorConfig struct {
 	ScanInterval time.Duration `mapstructure:"scan_interval"`
 	Sources      []string      `mapstructure:"sources"`
 	Twitter      TwitterConfig `mapstructure:"twitter"`
+	Reddit       RedditConfig  `mapstructure:"reddit"`
 	RSS          RSSConfig     `mapstructure:"rss"`
 }
 
@@ -48,15 +49,21 @@ type TwitterConfig struct {
 	PollInterval time.Duration `mapstructure:"poll_interval"`
 }
 
+type RedditConfig struct {
+	Enabled      bool     `mapstructure:"enabled"`
+	Subreddits   []string `mapstructure:"subreddits"` // e.g., ["wallstreetbets", "investing"]
+}
+
 type RSSConfig struct {
 	Enabled bool     `mapstructure:"enabled"`
 	Feeds   []string `mapstructure:"feeds"`
 }
 
 type AnalyzerConfig struct {
-	LLMProvider string `mapstructure:"llm_provider"`
+	LLMProvider string `mapstructure:"llm_provider"` // anthropic, ollama
 	LLMModel    string `mapstructure:"llm_model"`
 	APIKey      string `mapstructure:"api_key"`
+	OllamaURL   string `mapstructure:"ollama_url"` // e.g. "http://localhost:11434"
 }
 
 type ReporterConfig struct {

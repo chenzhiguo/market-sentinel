@@ -5,30 +5,48 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
-	"github.com/anthropics/anthropic-sdk-go"
-	"github.com/anthropics/anthropic-sdk-go/option"
-
 	"github.com/chenzhiguo/market-sentinel/internal/config"
+	"github.com/chenzhiguo/market-sentinel/internal/llm"
+	
+	// Register providers via init()
+	_ "github.com/chenzhiguo/market-sentinel/internal/llm/anthropic"
+	_ "github.com/chenzhiguo/market-sentinel/internal/llm/ollama"
+	
 	"github.com/chenzhiguo/market-sentinel/internal/storage"
 )
 
 type Analyzer struct {
-	cfg    *config.Config
-	store  *storage.Storage
-	client *anthropic.Client
+	cfg      *config.Config
+	store    *storage.Storage
+	provider llm.Provider
+	mapper   *StockMapper // Added StockMapper
 }
 
 func New(cfg *config.Config, store *storage.Storage) *Analyzer {
-	client := anthropic.NewClient(
-		option.WithAPIKey(cfg.Analyzer.APIKey),
-	)
+	providerName := strings.ToLower(cfg.Analyzer.LLMProvider)
+	
+	providerConfig := map[string]string{
+		"model":   cfg.Analyzer.LLMModel,
+		"api_key": cfg.Analyzer.APIKey,
+		"url":     cfg.Analyzer.OllamaURL,
+	}
+
+	provider, err := llm.NewProvider(providerName, providerConfig)
+	if err != nil {
+		log.Printf("Failed to create provider %s: %v", providerName, err)
+		if provider == nil {
+			log.Fatalf("Critical error: Could not initialize LLM provider '%s'. check config.", providerName)
+		}
+	}
 
 	return &Analyzer{
-		cfg:    cfg,
-		store:  store,
-		client: client,
+		cfg:      cfg,
+		store:    store,
+		provider: provider,
+		mapper:   NewStockMapper(), // Initialize StockMapper
 	}
 }
 
@@ -50,51 +68,66 @@ type StockResult struct {
 func (a *Analyzer) Analyze(ctx context.Context, news *storage.NewsItem) (*storage.Analysis, error) {
 	prompt := buildAnalysisPrompt(news)
 
-	message, err := a.client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model:     anthropic.F(a.cfg.Analyzer.LLMModel),
-		MaxTokens: anthropic.Int(1024),
-		Messages: anthropic.F([]anthropic.MessageParam{
-			anthropic.NewUserMessage(anthropic.NewTextBlock(prompt)),
-		}),
-	})
+	responseText, err := a.provider.Generate(ctx, prompt)
 	if err != nil {
-		return nil, fmt.Errorf("LLM API error: %w", err)
-	}
-
-	// Extract text from response
-	var responseText string
-	for _, block := range message.Content {
-		if block.Type == anthropic.ContentBlockTypeText {
-			responseText = block.Text
-			break
-		}
+		return nil, fmt.Errorf("LLM generation error: %w", err)
 	}
 
 	result, err := parseAnalysisResponse(responseText)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+		return nil, fmt.Errorf("failed to parse response: %w\nResponse was: %s", err, responseText)
 	}
 
 	analysis := &storage.Analysis{
-		ID:         fmt.Sprintf("ana_%d", time.Now().UnixNano()),
-		NewsID:     news.ID,
-		Sentiment:  result.Sentiment,
-		Impact:     result.Impact,
-		Summary:    result.Summary,
-		Confidence: result.Confidence,
-		AnalyzedAt: time.Now(),
+		ID:             fmt.Sprintf("ana_%d", time.Now().UnixNano()),
+		NewsID:         news.ID,
+		Sentiment:      result.Sentiment,
+		ImpactLevel:    result.Impact,
+		Summary:        result.Summary,
+		SentimentScore: float64(calculateOverallScore(result.Stocks)),
+		AnalyzedAt:     time.Now(),
+		RawResponse:    responseText,
+	}
+	
+	// 1. Get stocks identified by LLM
+	stockSet := make(map[string]bool)
+	var relatedStocks []string
+	for _, s := range result.Stocks {
+		if !stockSet[s.Symbol] {
+			relatedStocks = append(relatedStocks, s.Symbol)
+			stockSet[s.Symbol] = true
+		}
 	}
 
-	for _, s := range result.Stocks {
-		analysis.Stocks = append(analysis.Stocks, storage.StockImpact{
-			Symbol:    s.Symbol,
-			Score:     s.Score,
-			Reasoning: s.Reasoning,
-			Timeframe: s.Timeframe,
-		})
+	// 2. Augment with StockMapper (rule-based)
+	// Combine Title + Content for better matching
+	fullText := news.Title + " " + news.Content
+	mappedStocks := a.mapper.FindRelatedStocks(fullText)
+	
+	for _, symbol := range mappedStocks {
+		if !stockSet[symbol] {
+			// Found a stock not mentioned by LLM
+			relatedStocks = append(relatedStocks, symbol)
+			stockSet[symbol] = true
+			// Optional: We could add a "neutral" entry to result.Stocks for UI consistency
+			// result.Stocks = append(result.Stocks, StockResult{Symbol: symbol, Score: 0, Reasoning: "Identified by keyword association"})
+		}
 	}
+
+	analysis.RelatedStocks = relatedStocks
 
 	return analysis, nil
+}
+
+func calculateOverallScore(stocks []StockResult) int {
+	if len(stocks) == 0 {
+		return 0
+	}
+	total := 0
+	for _, s := range stocks {
+		total += s.Score
+	}
+	return total / len(stocks)
 }
 
 func (a *Analyzer) AnalyzeAndSave(ctx context.Context, news *storage.NewsItem) (*storage.Analysis, error) {
@@ -134,7 +167,7 @@ Published: %s
 Content:
 %s
 
-Respond in JSON format:
+You must respond with valid JSON only. No other text. The JSON schema is:
 {
   "sentiment": "positive|negative|neutral",
   "impact": "high|medium|low",
@@ -147,7 +180,7 @@ Respond in JSON format:
       "timeframe": "immediate|short|long"
     }
   ],
-  "confidence": 0.0 to 1.0
+  "confidence": 0.5 to 1.0
 }
 
 Focus on:
@@ -161,31 +194,28 @@ Only include stocks with clear connection to the content. If no specific stocks 
 }
 
 func parseAnalysisResponse(response string) (*AnalysisResult, error) {
-	// Find JSON in response
-	start := -1
-	end := -1
-	depth := 0
-
-	for i, c := range response {
-		if c == '{' {
-			if start == -1 {
-				start = i
+	response = strings.TrimSpace(response)
+	if strings.HasPrefix(response, "```") {
+		lines := strings.Split(response, "\n")
+		if len(lines) >= 2 {
+			if strings.HasPrefix(lines[0], "```") {
+				lines = lines[1:]
 			}
-			depth++
-		} else if c == '}' {
-			depth--
-			if depth == 0 {
-				end = i + 1
-				break
+			if len(lines) > 0 && strings.HasPrefix(lines[len(lines)-1], "```") {
+				lines = lines[:len(lines)-1]
 			}
+			response = strings.Join(lines, "\n")
 		}
 	}
 
-	if start == -1 || end == -1 {
+	start := strings.Index(response, "{")
+	end := strings.LastIndex(response, "}")
+	
+	if start == -1 || end == -1 || end < start {
 		return nil, fmt.Errorf("no JSON found in response")
 	}
 
-	jsonStr := response[start:end]
+	jsonStr := response[start : end+1]
 	var result AnalysisResult
 	if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {
 		return nil, fmt.Errorf("JSON parse error: %w", err)

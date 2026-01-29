@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -8,7 +9,9 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/chenzhiguo/market-sentinel/internal/analyzer"
 	"github.com/chenzhiguo/market-sentinel/internal/api"
+	"github.com/chenzhiguo/market-sentinel/internal/collector"
 	"github.com/chenzhiguo/market-sentinel/internal/config"
 	"github.com/chenzhiguo/market-sentinel/internal/storage"
 )
@@ -90,17 +93,26 @@ func runServe(configPath string) {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Initialize storage
 	store, err := storage.New(cfg.Storage.Database)
 	if err != nil {
 		log.Fatalf("Failed to initialize storage: %v", err)
 	}
 	defer store.Close()
 
-	// Start API server
+	// 1. Start Collector Manager (Producers)
+	colManager := collector.NewManager(cfg, store)
+	colManager.Start()
+	defer colManager.Stop()
+
+	// 2. Start Analysis Engine (Consumers)
+	ai := analyzer.New(cfg, store)
+	engine := analyzer.NewEngine(ai, store)
+	engine.Start()
+	defer engine.Stop()
+
+	// 3. Start API Server
 	server := api.NewServer(cfg, store)
 
-	// Graceful shutdown
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
@@ -109,7 +121,7 @@ func runServe(configPath string) {
 			log.Fatalf("Server error: %v", err)
 		}
 	}()
-
+	
 	log.Printf("Market Sentinel started on %s:%d", cfg.Server.Host, cfg.Server.Port)
 	<-done
 	log.Println("Shutting down...")
@@ -127,10 +139,29 @@ func runScan(configPath string, once bool) {
 	}
 	defer store.Close()
 
-	log.Println("Running scan...")
-	// TODO: Implement collector run
+	// 1. Run Collectors
+	colManager := collector.NewManager(cfg, store)
+	log.Println("Running collectors...")
+	colManager.RunOnce() // Synchronous run
+
+	// 2. Trigger Analysis (if requested)
+	// Even if run once, we might want to process what we just collected
 	if once {
-		log.Println("Single scan completed")
+		log.Println("Running analysis on new items...")
+		ai := analyzer.New(cfg, store)
+		
+		// Use manual batch processing instead of full Engine for CLI tool simplicity
+		unprocessed, _ := store.GetUnprocessedNews(20)
+		ctx := context.Background()
+		for _, item := range unprocessed {
+			log.Printf("Analyzing: %s", item.Title)
+			ai.AnalyzeAndSave(ctx, &item)
+			store.MarkNewsProcessed(item.ID)
+		}
+		log.Println("Scan completed")
+	} else {
+		// If not once, maybe loop? But typical CLI scan is one-off.
+		// If user wants loop, they should use 'serve'
 	}
 }
 

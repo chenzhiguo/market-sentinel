@@ -1,89 +1,129 @@
 package collector
 
 import (
+	"log"
+	"sync"
 	"time"
 
-	"market-sentinel/internal/storage"
+	"github.com/chenzhiguo/market-sentinel/internal/config"
+	"github.com/chenzhiguo/market-sentinel/internal/storage"
 )
 
-// Collector 数据采集器接口
-type Collector interface {
-	Name() string
+// SubCollector defines the interface for individual source collectors
+type SubCollector interface {
 	Collect() ([]storage.NewsItem, error)
 }
 
-// Manager 采集管理器
+// Manager orchestrates all collectors
 type Manager struct {
-	collectors []Collector
-	store      *storage.SQLiteStore
-	interval   time.Duration
+	cfg        *config.Config
+	store      *storage.Storage
+	collectors []SubCollector
 	stopCh     chan struct{}
+	wg         sync.WaitGroup
+	isRunning  bool
+	mu         sync.Mutex
 }
 
-func NewManager(store *storage.SQLiteStore, interval time.Duration) *Manager {
-	return &Manager{
-		store:    store,
-		interval: interval,
-		stopCh:   make(chan struct{}),
+func NewManager(cfg *config.Config, store *storage.Storage) *Manager {
+	m := &Manager{
+		cfg:    cfg,
+		store:  store,
+		stopCh: make(chan struct{}),
 	}
+
+	// Initialize enabled collectors
+	if cfg.Collector.Twitter.Enabled {
+		m.collectors = append(m.collectors, NewTwitterCollector(cfg.Collector.Twitter))
+	}
+	if cfg.Collector.RSS.Enabled {
+		m.collectors = append(m.collectors, NewRSSCollector(cfg.Collector.RSS))
+	}
+	if cfg.Collector.Reddit.Enabled {
+		m.collectors = append(m.collectors, NewRedditCollector(cfg.Collector.Reddit))
+	}
+
+	return m
 }
 
-func (m *Manager) Register(c Collector) {
-	m.collectors = append(m.collectors, c)
-}
-
+// Start begins the collection loop in background
 func (m *Manager) Start() {
-	go m.run()
+	m.mu.Lock()
+	if m.isRunning {
+		m.mu.Unlock()
+		return
+	}
+	m.isRunning = true
+	m.stopCh = make(chan struct{})
+	m.mu.Unlock()
+
+	log.Printf("Starting Collector Manager with %d sources...", len(m.collectors))
+	
+	m.wg.Add(1)
+	go m.loop()
 }
 
+// Stop gracefully shuts down collectors
 func (m *Manager) Stop() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if !m.isRunning {
+		return
+	}
 	close(m.stopCh)
+	m.isRunning = false
+	m.wg.Wait()
+	log.Println("Collector Manager stopped")
 }
 
-func (m *Manager) run() {
-	// 立即执行一次
-	m.collectAll()
+func (m *Manager) loop() {
+	defer m.wg.Done()
 
-	ticker := time.NewTicker(m.interval)
+	// Initial run
+	m.RunOnce()
+
+	ticker := time.NewTicker(m.cfg.Collector.ScanInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-ticker.C:
-			m.collectAll()
 		case <-m.stopCh:
 			return
+		case <-ticker.C:
+			m.RunOnce()
 		}
 	}
 }
 
-func (m *Manager) collectAll() {
-	for _, c := range m.collectors {
-		items, err := c.Collect()
-		if err != nil {
-			continue
-		}
+// RunOnce executes all collectors concurrently and saves results
+func (m *Manager) RunOnce() {
+	var wg sync.WaitGroup
+	
+	log.Println("Collector: starting scan cycle...")
 
-		for _, item := range items {
-			m.store.SaveNews(&item)
-		}
-	}
-}
-
-// CollectNow 立即执行一次采集
-func (m *Manager) CollectNow() (int, error) {
-	total := 0
-	for _, c := range m.collectors {
-		items, err := c.Collect()
-		if err != nil {
-			continue
-		}
-
-		for _, item := range items {
-			if err := m.store.SaveNews(&item); err == nil {
-				total++
+	for _, col := range m.collectors {
+		wg.Add(1)
+		go func(c SubCollector) {
+			defer wg.Done()
+			
+			items, err := c.Collect()
+			if err != nil {
+				log.Printf("Collector error: %v", err)
+				return
 			}
-		}
+
+			count := 0
+			for _, item := range items {
+				if err := m.store.SaveNews(&item); err == nil {
+					count++
+				}
+			}
+			if len(items) > 0 {
+				log.Printf("Collected %d items from source", len(items))
+			}
+		}(col)
 	}
-	return total, nil
+
+	wg.Wait()
+	log.Println("Collector: scan cycle completed")
 }
