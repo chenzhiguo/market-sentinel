@@ -33,11 +33,26 @@ collector:
 
   reddit:
     enabled: true
+    # Simple configuration: use same sort for all subreddits
+    sort_type: "new"        # new, hot, top, rising, controversial
+    time_range: "day"       # hour, day, week, month, year, all (for top/controversial)
     subreddits:
       - "wallstreetbets"
       - "stocks"
       - "investing"
       - "options"
+    
+    # Advanced configuration: per-subreddit settings (overrides simple config)
+    # sources:
+    #   - subreddit: "wallstreetbets"
+    #     sort_type: "hot"
+    #     time_range: "day"
+    #   - subreddit: "stocks"
+    #     sort_type: "top"
+    #     time_range: "week"
+    #   - subreddit: "investing"
+    #     sort_type: "rising"
+    #     time_range: "day"
 
   rss:
     enabled: true

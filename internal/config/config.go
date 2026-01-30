@@ -43,15 +43,25 @@ type CollectorConfig struct {
 }
 
 type TwitterConfig struct {
-	Enabled      bool     `mapstructure:"enabled"`
-	NitterHosts  []string `mapstructure:"nitter_hosts"`
-	Accounts     []string `mapstructure:"accounts"`
+	Enabled      bool          `mapstructure:"enabled"`
+	NitterHosts  []string      `mapstructure:"nitter_hosts"`
+	Accounts     []string      `mapstructure:"accounts"`
 	PollInterval time.Duration `mapstructure:"poll_interval"`
 }
 
 type RedditConfig struct {
-	Enabled      bool     `mapstructure:"enabled"`
-	Subreddits   []string `mapstructure:"subreddits"` // e.g., ["wallstreetbets", "investing"]
+	Enabled    bool           `mapstructure:"enabled"`
+	Subreddits []string       `mapstructure:"subreddits"` // e.g., ["wallstreetbets", "investing"]
+	SortType   string         `mapstructure:"sort_type"`  // new, hot, top, rising, controversial
+	TimeRange  string         `mapstructure:"time_range"` // hour, day, week, month, year, all (for top/controversial)
+	Sources    []RedditSource `mapstructure:"sources"`    // Advanced: per-subreddit configuration
+}
+
+// RedditSource allows per-subreddit configuration
+type RedditSource struct {
+	Subreddit string `mapstructure:"subreddit"`
+	SortType  string `mapstructure:"sort_type"`  // new, hot, top, rising, controversial
+	TimeRange string `mapstructure:"time_range"` // hour, day, week, month, year, all
 }
 
 type RSSConfig struct {
