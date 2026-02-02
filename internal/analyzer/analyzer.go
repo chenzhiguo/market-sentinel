@@ -85,6 +85,7 @@ func (a *Analyzer) Analyze(ctx context.Context, news *storage.NewsItem) (*storag
 		ImpactLevel:    result.Impact,
 		Summary:        result.Summary,
 		SentimentScore: float64(calculateOverallScore(result.Stocks)),
+		Confidence:     result.Confidence,
 		AnalyzedAt:     time.Now(),
 		RawResponse:    responseText,
 	}
@@ -92,9 +93,17 @@ func (a *Analyzer) Analyze(ctx context.Context, news *storage.NewsItem) (*storag
 	// 1. Get stocks identified by LLM
 	stockSet := make(map[string]bool)
 	var relatedStocks []string
+	var stockDetails []storage.StockImpact
+
 	for _, s := range result.Stocks {
 		if !stockSet[s.Symbol] {
 			relatedStocks = append(relatedStocks, s.Symbol)
+			stockDetails = append(stockDetails, storage.StockImpact{
+				Symbol:    s.Symbol,
+				Score:     s.Score,
+				Reasoning: s.Reasoning,
+				Timeframe: s.Timeframe,
+			})
 			stockSet[s.Symbol] = true
 		}
 	}
@@ -115,6 +124,7 @@ func (a *Analyzer) Analyze(ctx context.Context, news *storage.NewsItem) (*storag
 	}
 
 	analysis.RelatedStocks = relatedStocks
+	analysis.StockDetails = stockDetails
 
 	return analysis, nil
 }

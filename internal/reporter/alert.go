@@ -18,7 +18,7 @@ func NewAlertManager(store *storage.Storage) *AlertManager {
 // CheckAndCreateAlert evaluates an analysis and creates an alert if needed
 func (am *AlertManager) CheckAndCreateAlert(analysis *storage.Analysis, news *storage.NewsItem) (*storage.Alert, error) {
 	// Only create alerts for high impact items
-	if analysis.Impact != "high" {
+	if analysis.ImpactLevel != "high" {
 		return nil, nil
 	}
 
@@ -30,20 +30,20 @@ func (am *AlertManager) CheckAndCreateAlert(analysis *storage.Analysis, news *st
 
 	// Extract stock symbols
 	var stocks []string
-	for _, s := range analysis.Stocks {
+	for _, s := range analysis.StockDetails {
 		stocks = append(stocks, s.Symbol)
 	}
 
 	alert := &storage.Alert{
-		ID:         fmt.Sprintf("alert_%d", time.Now().UnixNano()),
-		NewsID:     analysis.NewsID,
-		AnalysisID: analysis.ID,
-		Level:      determineAlertLevel(analysis),
-		Title:      title,
-		Message:    message,
-		Stocks:     stocks,
-		CreatedAt:  time.Now(),
-		Notified:   false,
+		ID:          fmt.Sprintf("alert_%d", time.Now().UnixNano()),
+		NewsID:      analysis.NewsID,
+		AnalysisID:  analysis.ID,
+		Severity:    determineAlertLevel(analysis),
+		Title:       title,
+		Description: message,
+		Stocks:      stocks,
+		CreatedAt:   time.Now(),
+		Notified:    false,
 	}
 
 	if err := am.store.SaveAlert(alert); err != nil {
@@ -73,9 +73,9 @@ func buildAlertTitle(analysis *storage.Analysis, news *storage.NewsItem) string 
 func buildAlertMessage(analysis *storage.Analysis, news *storage.NewsItem) string {
 	msg := analysis.Summary
 
-	if len(analysis.Stocks) > 0 {
+	if len(analysis.StockDetails) > 0 {
 		msg += "\n\n关联股票: "
-		for i, s := range analysis.Stocks {
+		for i, s := range analysis.StockDetails {
 			if i > 0 {
 				msg += ", "
 			}
@@ -93,7 +93,7 @@ func buildAlertMessage(analysis *storage.Analysis, news *storage.NewsItem) strin
 func determineAlertLevel(analysis *storage.Analysis) string {
 	// Critical if high confidence and strong sentiment
 	if analysis.Confidence > 0.8 {
-		for _, s := range analysis.Stocks {
+		for _, s := range analysis.StockDetails {
 			if s.Score >= 8 || s.Score <= -8 {
 				return "critical"
 			}

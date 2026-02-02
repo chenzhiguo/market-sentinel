@@ -101,13 +101,13 @@ func (r *Reporter) generateReport(ctx context.Context, reportType, title string,
 		// Fetch original news
 		news, _ := r.store.GetNews(a.NewsID)
 		
-		if a.Impact == "high" || a.Impact == "medium" {
+		if a.ImpactLevel == "high" || a.ImpactLevel == "medium" {
 			item := HighlightItem{
 				NewsID:    a.NewsID,
 				Sentiment: a.Sentiment,
-				Impact:    a.Impact,
+				Impact:    a.ImpactLevel,
 				Summary:   a.Summary,
-				Stocks:    a.Stocks,
+				Stocks:    a.StockDetails,
 			}
 			if news != nil {
 				item.Source = news.Source
@@ -118,7 +118,7 @@ func (r *Reporter) generateReport(ctx context.Context, reportType, title string,
 		}
 
 		// Aggregate stock scores
-		for _, stock := range a.Stocks {
+		for _, stock := range a.StockDetails {
 			stockScores[stock.Symbol] = append(stockScores[stock.Symbol], stock.Score)
 		}
 	}

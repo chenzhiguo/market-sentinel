@@ -23,11 +23,13 @@ type Analysis struct {
 	ID             string    `json:"id" gorm:"primaryKey"`
 	NewsID         string    `json:"news_id" gorm:"index:idx_analysis_news"`
 	News           NewsItem  `json:"-" gorm:"foreignKey:NewsID;references:ID"`
-	Sentiment      string    `json:"sentiment"`       // positive, negative, neutral
-	SentimentScore float64   `json:"sentiment_score"` // -1.0 to 1.0
-	Entities       []string  `json:"entities" gorm:"serializer:json"`
-	RelatedStocks  []string  `json:"related_stocks" gorm:"serializer:json"`
-	ImpactLevel    string    `json:"impact_level"` // high, medium, low
+	Sentiment      string        `json:"sentiment"`       // positive, negative, neutral
+	SentimentScore float64       `json:"sentiment_score"` // -1.0 to 1.0
+	Confidence     float64       `json:"confidence"`
+	Entities       []string      `json:"entities" gorm:"serializer:json"`
+	RelatedStocks  []string      `json:"related_stocks" gorm:"serializer:json"` // For search/filtering
+	StockDetails   []StockImpact `json:"stock_details" gorm:"serializer:json"`  // Detailed scores
+	ImpactLevel    string        `json:"impact_level"`                          // high, medium, low
 	Summary        string    `json:"summary"`
 	KeyPoints      []string  `json:"key_points" gorm:"serializer:json"`
 	AnalyzedAt     time.Time `json:"analyzed_at"`
@@ -46,18 +48,22 @@ type Alert struct {
 	Stocks       []string  `json:"stocks" gorm:"serializer:json"`
 	CreatedAt    time.Time `json:"created_at" gorm:"index:idx_alerts_created"`
 	Acknowledged int       `json:"acknowledged"` // 0 or 1
+	Notified     bool      `json:"notified"`     // Whether alert has been sent
 }
 
 // Report represents a generated report
 type Report struct {
 	ID          string                 `json:"id" gorm:"primaryKey"`
 	Type        string                 `json:"type"` // morning-brief, daily-summary
+	Title       string                 `json:"title"`
 	StartTime   time.Time              `json:"start_time"`
 	EndTime     time.Time              `json:"end_time"`
 	Summary     string                 `json:"summary"`
+	Content     string                 `json:"content"` // JSON content
 	TopNews     []NewsItem             `json:"top_news" gorm:"serializer:json"`
 	StockImpact map[string]StockImpact `json:"stock_impact" gorm:"serializer:json"`
 	CreatedAt   time.Time              `json:"created_at"`
+	GeneratedAt time.Time              `json:"generated_at"`
 	FilePath    string                 `json:"file_path"`
 }
 
